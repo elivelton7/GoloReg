@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { Trophy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type Period = 'DAY' | 'MONTH' | 'YEAR';
 type SortKey = 'goals' | 'assists' | 'saves' | 'fouls';
@@ -10,6 +11,7 @@ type SortDirection = 'asc' | 'desc';
 
 export const StatsDashboard: React.FC = () => {
     const { players, events } = useStore();
+    const { t } = useLanguage();
     const [period, setPeriod] = useState<Period>('DAY');
     const [date] = useState(new Date());
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({
@@ -72,7 +74,7 @@ export const StatsDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                     <Trophy className="text-yellow-500" />
-                    Leaderboard
+                    {t('stats.title')}
                 </h2>
 
                 <div className="flex items-center bg-white rounded-lg border border-gray-200 p-1 w-full sm:w-auto overflow-x-auto">
@@ -87,7 +89,7 @@ export const StatsDashboard: React.FC = () => {
                                     : 'text-gray-600 hover:bg-gray-50'
                             )}
                         >
-                            {p === 'DAY' ? 'Today' : p === 'MONTH' ? 'This Month' : 'This Year'}
+                            {p === 'DAY' ? t('stats.today') : p === 'MONTH' ? t('stats.month') : t('stats.year')}
                         </button>
                     ))}
                 </div>
@@ -98,13 +100,13 @@ export const StatsDashboard: React.FC = () => {
                     <table className="w-full text-left min-w-[350px]">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="px-3 sm:px-6 py-3 font-semibold text-gray-900 text-sm">Player</th>
+                                <th className="px-3 sm:px-6 py-3 font-semibold text-gray-900 text-sm">{t('stats.player')}</th>
                                 <th
                                     className="px-2 sm:px-6 py-3 font-semibold text-gray-900 text-center cursor-pointer hover:bg-gray-100 transition-colors select-none"
                                     onClick={() => handleSort('goals')}
                                 >
                                     <div className="flex items-center justify-center gap-1 text-xs sm:text-sm">
-                                        Goals <SortIcon columnKey="goals" />
+                                        {t('stats.goals')} <SortIcon columnKey="goals" />
                                     </div>
                                 </th>
                                 <th
@@ -112,7 +114,7 @@ export const StatsDashboard: React.FC = () => {
                                     onClick={() => handleSort('assists')}
                                 >
                                     <div className="flex items-center justify-center gap-1 text-xs sm:text-sm">
-                                        Assists <SortIcon columnKey="assists" />
+                                        {t('stats.assists')} <SortIcon columnKey="assists" />
                                     </div>
                                 </th>
                                 <th
@@ -120,7 +122,7 @@ export const StatsDashboard: React.FC = () => {
                                     onClick={() => handleSort('saves')}
                                 >
                                     <div className="flex items-center justify-center gap-1 text-xs sm:text-sm">
-                                        Saves <SortIcon columnKey="saves" />
+                                        {t('stats.saves')} <SortIcon columnKey="saves" />
                                     </div>
                                 </th>
                                 <th
@@ -128,7 +130,7 @@ export const StatsDashboard: React.FC = () => {
                                     onClick={() => handleSort('fouls')}
                                 >
                                     <div className="flex items-center justify-center gap-1 text-xs sm:text-sm">
-                                        Fouls <SortIcon columnKey="fouls" />
+                                        {t('stats.fouls')} <SortIcon columnKey="fouls" />
                                     </div>
                                 </th>
                             </tr>
@@ -153,7 +155,7 @@ export const StatsDashboard: React.FC = () => {
                             {stats.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                                        No stats available for this period.
+                                        {t('stats.empty')}
                                     </td>
                                 </tr>
                             )}
