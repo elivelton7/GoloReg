@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { PlayerRegistration } from './pages/PlayerRegistration';
 import { EventLogger } from './pages/EventLogger';
@@ -9,7 +9,7 @@ import { useStore } from './store/useStore';
 const ProtectedRoute = () => {
   const { currentField } = useStore();
   if (!currentField) return <Navigate to="/" replace />;
-  return <Layout><Outlet /></Layout>;
+  return <Layout />;
 };
 
 function App() {

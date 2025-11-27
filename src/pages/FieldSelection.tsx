@@ -1,33 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Search, Plus, Map, Lock } from 'lucide-react';
-import type { Field } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { MapPin, Plus, ArrowRight, Lock, Search } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const FieldSelection: React.FC = () => {
+    const { fetchFields, createField, selectField, verifyFieldPassword } = useStore();
+    const { t } = useLanguage();
     const navigate = useNavigate();
-    const { fetchFields, createField, selectField, verifyFieldPassword, showToast } = useStore();
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<Field[]>([]);
 
-    // Creation State
-    const [isCreating, setIsCreating] = useState(false);
-    const [newDescription, setNewDescription] = useState('');
-    const [newPassword, setNewPassword] = useState('');
+    const [mode, setMode] = useState<'select' | 'create'>('select');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [fields, setFields] = useState<Awaited<ReturnType<typeof fetchFields>>>([]);
 
-    // Selection State
-    const [selectedField, setSelectedField] = useState<Field | null>(null);
+    const [newFieldCode, setNewFieldCode] = useState('');
+    const [newFieldDesc, setNewFieldDesc] = useState('');
+    const [newFieldPass, setNewFieldPass] = useState('');
+
+    const [selectedField, setSelectedField] = useState<any | null>(null);
     const [passwordInput, setPasswordInput] = useState('');
 
-    useEffect(() => {
-        if (query.length >= 2) {
-            fetchFields(query).then(setResults);
+    const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const query = e.target.value;
+        setSearchQuery(query);
+        if (query.length > 2) {
+            const results = await fetchFields(query);
+            setFields(results);
         } else {
-            setResults([]);
+            setFields([]);
         }
-    }, [query, fetchFields]);
+    };
 
-    const handleFieldClick = (field: Field) => {
+    const handleCreate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newFieldCode && newFieldDesc) {
+            const field = await createField(newFieldCode, newFieldDesc, newFieldPass || undefined);
+            if (field) {
+                await selectField(field);
+                navigate('/players');
+            }
+        }
+    };
+
+    const handleFieldClick = (field: any) => {
         setSelectedField(field);
         setPasswordInput('');
     };
@@ -41,144 +56,157 @@ export const FieldSelection: React.FC = () => {
             await selectField(selectedField);
             navigate('/players');
         } else {
-            showToast('Incorrect password', 'error');
+            // Toast is handled in store or we can add local error state
+            alert(t('field.incorrectPassword'));
         }
     };
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query || !newDescription || !newPassword) return;
-
-        const field = await createField(query, newDescription, newPassword);
-        if (field) {
-            await selectField(field);
-            navigate('/players');
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 space-y-8">
-                <div className="text-center space-y-2">
-                    <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Map className="text-indigo-600" size={32} />
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Welcome to GoloReg</h1>
-                    <p className="text-gray-500">Select a field to start tracking stats</p>
-                </div>
-
-                {!selectedField ? (
-                    <div className="space-y-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                            <input
-                                type="text"
-                                value={query}
-                                onChange={(e) => {
-                                    setQuery(e.target.value.toUpperCase().slice(0, 4));
-                                    setIsCreating(false);
-                                }}
-                                placeholder="Enter Field Code (e.g. ARENA)"
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all uppercase"
-                                maxLength={4}
-                            />
+    if (selectedField) {
+        return (
+            <div className="min-h-[80vh] flex items-center justify-center">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-100">
+                    <div className="text-center mb-8">
+                        <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Lock className="text-indigo-600" size={32} />
                         </div>
-
-                        {results.length > 0 && !isCreating && (
-                            <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100">
-                                {results.map((field) => (
-                                    <button
-                                        key={field.id}
-                                        onClick={() => handleFieldClick(field)}
-                                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between group transition-colors"
-                                    >
-                                        <div>
-                                            <div className="font-semibold text-gray-900">{field.code}</div>
-                                            <div className="text-sm text-gray-500">{field.description}</div>
-                                        </div>
-                                        <div className="opacity-0 group-hover:opacity-100 text-indigo-600 transition-opacity">
-                                            <Lock size={16} />
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {query.length >= 3 && results.length === 0 && !isCreating && (
-                            <button
-                                onClick={() => setIsCreating(true)}
-                                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-600 flex items-center justify-center gap-2 transition-colors"
-                            >
-                                <Plus size={20} />
-                                Create new field "{query}"
-                            </button>
-                        )}
-
-                        {isCreating && (
-                            <form onSubmit={handleCreate} className="space-y-4 animate-in fade-in slide-in-from-top-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                    <input
-                                        type="text"
-                                        value={newDescription}
-                                        onChange={(e) => setNewDescription(e.target.value)}
-                                        placeholder="e.g. Downtown Arena"
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Set Password</label>
-                                    <input
-                                        type="password"
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        placeholder="Enter password"
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={!newDescription.trim() || !newPassword.trim()}
-                                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Create & Enter
-                                </button>
-                            </form>
-                        )}
+                        <h2 className="text-2xl font-bold text-gray-900">{t('field.accessPassword')}</h2>
+                        <p className="text-gray-500 mt-2">
+                            {selectedField.code} - {selectedField.description}
+                        </p>
                     </div>
-                ) : (
+
                     <form onSubmit={handleVerifyAndEnter} className="space-y-4 animate-in fade-in slide-in-from-right-4">
-                        <div className="text-center pb-2">
-                            <h3 className="font-semibold text-gray-900">Enter Password for {selectedField.code}</h3>
-                            <p className="text-sm text-gray-500">This field is protected</p>
-                        </div>
-
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                {t('field.enterPasswordPlaceholder')}
+                            </label>
                             <input
                                 type="password"
                                 value={passwordInput}
                                 onChange={(e) => setPasswordInput(e.target.value)}
-                                placeholder="Enter password"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-center tracking-widest"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-lg"
+                                placeholder="****"
                                 autoFocus
                             />
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 pt-2">
                             <button
                                 type="button"
                                 onClick={() => setSelectedField(null)}
-                                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                                className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
                             >
-                                Cancel
+                                {t('common.back')}
                             </button>
                             <button
                                 type="submit"
-                                disabled={!passwordInput}
-                                className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
                             >
-                                Enter
+                                {t('field.accessButton')} <ArrowRight size={20} />
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-[80vh] flex items-center justify-center">
+            <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-100 transition-all duration-300">
+                <div className="text-center mb-8">
+                    <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <MapPin className="text-indigo-600" size={32} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        {mode === 'select' ? t('field.selectTitle') : t('field.createTitle')}
+                    </h2>
+                </div>
+
+                {mode === 'select' ? (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-left-4">
+                        <div className="relative">
+                            <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={handleSearch}
+                                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                placeholder={t('field.searchPlaceholder')}
+                            />
+                        </div>
+
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {fields.map((field) => (
+                                <button
+                                    key={field.id}
+                                    onClick={() => handleFieldClick(field)}
+                                    className="w-full p-4 text-left rounded-xl border border-gray-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                                >
+                                    <div className="font-semibold text-gray-900 group-hover:text-indigo-700 flex items-center justify-between">
+                                        {field.code}
+                                        <Lock size={14} className="text-gray-400 group-hover:text-indigo-400" />
+                                    </div>
+                                    <div className="text-sm text-gray-500">{field.description}</div>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-100">
+                            <button
+                                onClick={() => setMode('create')}
+                                className="w-full py-3 text-indigo-600 font-medium hover:bg-indigo-50 rounded-xl transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Plus size={20} />
+                                {t('field.orCreate')}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <form onSubmit={handleCreate} className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.enterCode')}</label>
+                            <input
+                                type="text"
+                                value={newFieldCode}
+                                onChange={(e) => setNewFieldCode(e.target.value.toUpperCase())}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all uppercase"
+                                placeholder="ARENA-01"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.description')}</label>
+                            <input
+                                type="text"
+                                value={newFieldDesc}
+                                onChange={(e) => setNewFieldDesc(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                placeholder="Campo Society Principal"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.password')}</label>
+                            <input
+                                type="text"
+                                value={newFieldPass}
+                                onChange={(e) => setNewFieldPass(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                placeholder="9999"
+                            />
+                        </div>
+                        <div className="pt-2 space-y-3">
+                            <button
+                                type="submit"
+                                className="w-full px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {t('field.createButton')} <ArrowRight size={20} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMode('select')}
+                                className="w-full py-3 text-gray-500 font-medium hover:bg-gray-50 rounded-xl transition-colors"
+                            >
+                                {t('field.backToSelection')}
                             </button>
                         </div>
                     </form>

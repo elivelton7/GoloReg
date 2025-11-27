@@ -2,9 +2,11 @@ import React from 'react';
 import { useStore } from '../store/useStore';
 import type { GameEvent } from '../types';
 import { Dribbble, Footprints, Hand, RectangleVertical } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const EventLogger: React.FC = () => {
     const { players, addEvent, showToast } = useStore();
+    const { t } = useLanguage();
 
     const handleLog = async (playerId: string, type: GameEvent['type']) => {
         await addEvent(playerId, type);
@@ -15,13 +17,13 @@ export const EventLogger: React.FC = () => {
         if (type === 'SAVE') color = 'orange';
         if (type === 'FOUL') color = 'red';
 
-        showToast(`${type} recorded for ${player?.name}!`, 'success', color);
+        showToast(`${type} ${t('logger.recorded')} ${player?.name}!`, 'success', color);
     };
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Live Event Logger</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('logger.title')}</h2>
                 <div className="text-sm text-gray-500">
                     {new Date().toLocaleDateString()}
                 </div>
@@ -38,7 +40,7 @@ export const EventLogger: React.FC = () => {
                             <button
                                 onClick={() => handleLog(player.id, 'GOAL')}
                                 className="flex items-center justify-center p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
-                                title="Goal"
+                                title={t('logger.goal')}
                             >
                                 <Dribbble size={24} />
                             </button>
@@ -46,7 +48,7 @@ export const EventLogger: React.FC = () => {
                             <button
                                 onClick={() => handleLog(player.id, 'ASSIST')}
                                 className="flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                                title="Assist"
+                                title={t('logger.assist')}
                             >
                                 <Footprints size={24} />
                             </button>
@@ -54,7 +56,7 @@ export const EventLogger: React.FC = () => {
                             <button
                                 onClick={() => handleLog(player.id, 'FOUL')}
                                 className="flex items-center justify-center p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                                title="Foul"
+                                title={t('logger.foul')}
                             >
                                 <RectangleVertical size={24} fill="currentColor" />
                             </button>
@@ -63,7 +65,7 @@ export const EventLogger: React.FC = () => {
                                 <button
                                     onClick={() => handleLog(player.id, 'SAVE')}
                                     className="flex items-center justify-center p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
-                                    title="Save"
+                                    title={t('logger.save')}
                                 >
                                     <Hand size={24} />
                                 </button>

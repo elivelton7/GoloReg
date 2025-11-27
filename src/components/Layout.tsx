@@ -1,20 +1,27 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Users, Activity, BarChart2, MapPin, LogOut } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Toast } from './Toast';
 import { Footer } from './Footer';
 import { clsx } from 'clsx';
 
-export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const location = useLocation();
+export const Layout: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { currentField, clearField } = useStore();
+    const { t, currentLanguage, setLanguage } = useLanguage();
+
+    const handleLogout = () => {
+        clearField();
+        navigate('/');
+    };
 
     const navItems = [
-        { path: '/players', label: 'Players', icon: Users },
-        { path: '/logger', label: 'Logger', icon: Activity },
-        { path: '/stats', label: 'Stats', icon: BarChart2 },
+        { path: '/players', icon: Users, label: t('player.listTitle') },
+        { path: '/logger', icon: Activity, label: t('logger.title') },
+        { path: '/stats', icon: BarChart2, label: t('stats.title') },
     ];
 
     return (
@@ -22,29 +29,41 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <Toast />
             <header className="bg-white shadow-sm sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-indigo-600 p-2 rounded-lg">
+                            <Activity className="text-white" size={20} />
+                        </div>
+                        <h1 className="text-xl font-bold text-gray-900 hidden sm:block">GoloReg</h1>
+                    </div>
+
                     <div className="flex items-center gap-4">
-                        <h1 className="text-xl font-bold text-indigo-600">GoloReg</h1>
+                        <select
+                            value={currentLanguage}
+                            onChange={(e) => setLanguage(e.target.value as any)}
+                            className="bg-gray-50 border-none text-sm font-medium text-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 py-1.5 pl-3 pr-8 cursor-pointer uppercase outline-none"
+                        >
+                            <option value="pt">PT</option>
+                            <option value="en">EN</option>
+                            <option value="es">ES</option>
+                        </select>
+
                         {currentField && (
-                            <div className="flex items-center gap-2">
-                                <div className="hidden sm:flex items-center gap-1 text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
-                                    <MapPin size={14} />
-                                    <span className="font-medium text-gray-900">{currentField.code}</span>
-                                    <span className="text-gray-400">|</span>
-                                    <span className="truncate max-w-[150px]">{currentField.description}</span>
+                            <div className="flex items-center gap-4">
+                                <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-full">
+                                    <MapPin size={16} />
+                                    <span className="font-medium">{currentField.code}</span>
                                 </div>
                                 <button
-                                    onClick={() => {
-                                        clearField();
-                                        navigate('/');
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                    title="Change Field"
+                                    onClick={handleLogout}
+                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title={t('field.changeField')}
                                 >
-                                    <LogOut size={18} />
+                                    <LogOut size={20} />
                                 </button>
                             </div>
                         )}
                     </div>
+
                     <nav className="flex gap-4">
                         {navItems.map(({ path, label, icon: Icon }) => (
                             <Link
@@ -65,7 +84,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </div>
             </header>
             <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
-                {children}
+                <Outlet />
             </main>
             <Footer />
         </div>
