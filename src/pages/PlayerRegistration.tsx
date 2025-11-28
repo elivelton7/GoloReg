@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { UserPlus, Power, Search } from 'lucide-react';
+import { UserPlus, Power, Search, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const PlayerRegistration: React.FC = () => {
-    const { players, addPlayer, togglePlayerStatus } = useStore();
+    const { players, addPlayer, togglePlayerStatus, deletePlayer, fetchPlayers, currentField } = useStore();
     const { t } = useLanguage();
     const [name, setName] = useState('');
     const [role, setRole] = useState<'GK' | 'FIELD' | 'BOTH'>('FIELD');
     const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        if (currentField) {
+            fetchPlayers();
+        }
+    }, [currentField]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,6 +26,12 @@ export const PlayerRegistration: React.FC = () => {
         await addPlayer(name.trim(), roles);
         setName('');
         setRole('FIELD');
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm(t('common.confirmDelete'))) {
+            await deletePlayer(id);
+        }
     };
 
     const filteredPlayers = players.filter(player =>
@@ -97,21 +109,30 @@ export const PlayerRegistration: React.FC = () => {
                                         {player.roles.includes('GK') && <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-xs">{t('player.roleGK')}</span>}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => togglePlayerStatus(player.id)}
-                                    className={clsx(
-                                        "p-2 rounded-lg transition-colors",
-                                        player.active ? "text-green-600 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"
-                                    )}
-                                    title={player.active ? t('player.deactivate') : t('player.activate')}
-                                >
-                                    <Power size={20} />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => togglePlayerStatus(player.id)}
+                                        className={clsx(
+                                            "p-2 rounded-lg transition-colors",
+                                            player.active ? "text-green-600 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"
+                                        )}
+                                        title={player.active ? t('player.deactivate') : t('player.activate')}
+                                    >
+                                        <Power size={20} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(player.id)}
+                                        className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+                                        title={t('common.delete')}
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

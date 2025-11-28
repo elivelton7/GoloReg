@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Plus, ArrowRight, Lock, Search } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const FieldSelection: React.FC = () => {
-    const { fetchFields, createField, selectField, verifyFieldPassword } = useStore();
+    const { fetchFields, createField, selectField, verifyFieldPassword, currentField } = useStore();
     const { t } = useLanguage();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (currentField) {
+            navigate('/players');
+        }
+    }, [currentField, navigate]);
 
     const [mode, setMode] = useState<'select' | 'create'>('select');
     const [searchQuery, setSearchQuery] = useState('');
