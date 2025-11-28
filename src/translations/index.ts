@@ -7,6 +7,9 @@ export const translations = {
             back: 'Back',
             cancel: 'Cancel',
             confirm: 'Confirm',
+            undo: 'Undo',
+            delete: 'Delete',
+            confirmDelete: 'Are you sure you want to delete this item?',
         },
         field: {
             selectTitle: 'Select Field',
@@ -72,6 +75,9 @@ export const translations = {
             back: 'Voltar',
             cancel: 'Cancelar',
             confirm: 'Confirmar',
+            undo: 'Desfazer',
+            delete: 'Deletar',
+            confirmDelete: 'Tem certeza que deseja deletar este item?',
         },
         field: {
             selectTitle: 'Selecionar Campo',
@@ -137,6 +143,9 @@ export const translations = {
             back: 'Volver',
             cancel: 'Cancelar',
             confirm: 'Confirmar',
+            undo: 'Deshacer',
+            delete: 'Eliminar',
+            confirmDelete: '¿Estás seguro de que quieres eliminar este elemento?',
         },
         field: {
             selectTitle: 'Seleccionar Campo',

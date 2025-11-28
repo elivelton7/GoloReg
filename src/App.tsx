@@ -4,6 +4,7 @@ import { PlayerRegistration } from './pages/PlayerRegistration';
 import { EventLogger } from './pages/EventLogger';
 import { StatsDashboard } from './pages/StatsDashboard';
 import { FieldSelection } from './pages/FieldSelection';
+import { AdminPage } from './pages/AdminPage';
 import { useStore } from './store/useStore';
 
 const ProtectedRoute = () => {
@@ -22,6 +23,7 @@ function App() {
           <Route path="/logger" element={<EventLogger />} />
           <Route path="/stats" element={<StatsDashboard />} />
         </Route>
+        <Route path="/admin_page" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

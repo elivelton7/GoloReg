@@ -26,10 +26,27 @@ create table events (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Create users table for admin access
+create table users (
+  id uuid default gen_random_uuid() primary key,
+  username text not null unique,
+  password text not null,
+  is_admin boolean not null default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Insert default admin user (password: admin123)
+insert into users (username, password, is_admin)
+values ('admin', 'admin123', true);
+
 -- Enable Row Level Security (RLS)
 alter table fields enable row level security;
 alter table players enable row level security;
 alter table events enable row level security;
+alter table users enable row level security;
 
--- Create policies
-create policy "Public contacts access" on contacts for all using (true);
+-- Create policies (Allow public access for now for simplicity, restrict in production)
+create policy "Public fields access" on fields for all using (true);
+create policy "Public players access" on players for all using (true);
+create policy "Public events access" on events for all using (true);
+create policy "Public users access" on users for all using (true);
