@@ -2,6 +2,18 @@ export type Language = 'en' | 'pt' | 'es';
 
 export const translations = {
     en: {
+        footer: {
+            developedBy: 'GoloReg Developed by Eli',
+            email: 'Email',
+            phone: 'Phone',
+        },
+        auth: {
+            signUpSuccess: 'Sign up successful! Please sign in.',
+            signUpFailed: 'Sign up failed: ',
+            signInFailed: 'Sign in failed: ',
+            invalidCredentials: 'Invalid login credentials',
+            signOut: 'Sign Out',
+        },
         common: {
             loading: 'Loading...',
             back: 'Back',
@@ -10,6 +22,9 @@ export const translations = {
             undo: 'Undo',
             delete: 'Delete',
             confirmDelete: 'Are you sure you want to delete this item?',
+            permissionDenied: 'Permission denied.',
+            actionSuccess: 'Action successful',
+            actionFailed: 'Action failed: ',
         },
         login: {
             createAccount: 'Create Account',
@@ -43,6 +58,13 @@ export const translations = {
             searchPlaceholder: 'Search fields...',
             changeField: 'Change Field',
             incorrectPassword: 'Incorrect password',
+            createError: 'Failed to create field: ',
+            deleteSuccess: 'Field deleted successfully',
+            deleteError: 'Failed to delete field: ',
+            deleteErrorEvents: 'Failed to delete field events',
+            deleteErrorPlayers: 'Failed to delete field players',
+            deleteDenied: 'Could not delete field. Permission denied or not found.',
+            loginRequired: 'You must be logged in to create a field',
         },
         player: {
             registerTitle: 'Register New Player',
@@ -59,6 +81,10 @@ export const translations = {
             noResults: 'No players found matching your search.',
             activate: 'Activate Player',
             deactivate: 'Deactivate Player',
+            deleteSuccess: 'Player deleted successfully',
+            deleteError: 'Failed to delete player: ',
+            deleteErrorEvents: 'Failed to delete player events',
+            deleteDenied: 'Could not delete player. Permission denied or not found.',
         },
         logger: {
             title: 'Events',
@@ -92,10 +118,21 @@ export const translations = {
             fouls: 'Fouls',
             empty: 'No stats available for this period.',
         },
-        footer: {
-            developedBy: 'Developed by Eli',
-            email: 'Email',
-            phone: 'Phone',
+        event: {
+            deleteSuccess: 'Event deleted successfully',
+            deleteError: 'Failed to delete event',
+            deleteDenied: 'Could not delete event. Permission denied.',
+        },
+        credits: {
+            addSuccess: 'Credits added successfully. New balance: ',
+            addError: 'Failed to add credits: ',
+        },
+        session: {
+            startSuccess: 'Session started successfully',
+            startError: 'Failed to start session: ',
+            stopSuccess: 'Session stopped. Charged: ',
+            stopError: 'Failed to stop session: ',
+            creditsLabel: ' credits.',
         }
     },
     pt: {
@@ -107,6 +144,9 @@ export const translations = {
             undo: 'Desfazer',
             delete: 'Deletar',
             confirmDelete: 'Tem certeza que deseja deletar este item?',
+            permissionDenied: 'Permissão negada.',
+            actionSuccess: 'Ação realizada com sucesso',
+            actionFailed: 'Falha na ação: ',
         },
         login: {
             createAccount: 'Criar Conta',
@@ -140,6 +180,13 @@ export const translations = {
             searchPlaceholder: 'Buscar campos...',
             changeField: 'Trocar Campo',
             incorrectPassword: 'Senha incorreta',
+            createError: 'Falha ao criar campo: ',
+            deleteSuccess: 'Campo deletado com sucesso',
+            deleteError: 'Falha ao deletar campo: ',
+            deleteErrorEvents: 'Falha ao deletar eventos do campo',
+            deleteErrorPlayers: 'Falha ao deletar jogadores do campo',
+            deleteDenied: 'Não foi possível deletar o campo. Permissão negada ou não encontrado.',
+            loginRequired: 'Você precisa estar logado para criar um campo',
         },
         player: {
             registerTitle: 'Registrar Novo Jogador',
@@ -156,6 +203,10 @@ export const translations = {
             noResults: 'Nenhum jogador encontrado.',
             activate: 'Ativar Jogador',
             deactivate: 'Desativar Jogador',
+            deleteSuccess: 'Jogador deletado com sucesso',
+            deleteError: 'Falha ao deletar jogador: ',
+            deleteErrorEvents: 'Falha ao deletar eventos do jogador',
+            deleteDenied: 'Não foi possível deletar o jogador. Permissão negada ou não encontrado.',
         },
         logger: {
             title: 'Eventos',
@@ -190,9 +241,32 @@ export const translations = {
             empty: 'Sem estatísticas para este período.',
         },
         footer: {
-            developedBy: 'Desenvolvido por Eli',
+            developedBy: 'GoloReg Desenvolvido por Eli',
             email: 'Email',
             phone: 'Telefone',
+        },
+        auth: {
+            signUpSuccess: 'Cadastro realizado com sucesso! Por favor, faça login.',
+            signUpFailed: 'Falha no cadastro: ',
+            signInFailed: 'Falha no login: ',
+            invalidCredentials: 'Credenciais de login inválidas',
+            signOut: 'Sair',
+        },
+        event: {
+            deleteSuccess: 'Evento deletado com sucesso',
+            deleteError: 'Falha ao deletar evento',
+            deleteDenied: 'Não foi possível deletar o evento. Permissão negada.',
+        },
+        credits: {
+            addSuccess: 'Créditos adicionados com sucesso. Novo saldo: ',
+            addError: 'Falha ao adicionar créditos: ',
+        },
+        session: {
+            startSuccess: 'Sessão iniciada com sucesso',
+            startError: 'Falha ao iniciar sessão: ',
+            stopSuccess: 'Sessão finalizada. Cobrado: ',
+            stopError: 'Falha ao finalizar sessão: ',
+            creditsLabel: ' créditos.',
         }
     },
     es: {
@@ -204,6 +278,9 @@ export const translations = {
             undo: 'Deshacer',
             delete: 'Eliminar',
             confirmDelete: '¿Estás seguro de que quieres eliminar este elemento?',
+            permissionDenied: 'Permiso denegado.',
+            actionSuccess: 'Acción exitosa',
+            actionFailed: 'Acción fallida: ',
         },
         login: {
             createAccount: 'Crear Cuenta',
@@ -237,6 +314,13 @@ export const translations = {
             searchPlaceholder: 'Buscar campos...',
             changeField: 'Cambiar Campo',
             incorrectPassword: 'Contraseña incorrecta',
+            createError: 'Error al crear campo: ',
+            deleteSuccess: 'Campo eliminado con éxito',
+            deleteError: 'Error al eliminar campo: ',
+            deleteErrorEvents: 'Error al eliminar eventos del campo',
+            deleteErrorPlayers: 'Error al eliminar jugadores del campo',
+            deleteDenied: 'No se pudo eliminar el campo. Permiso denegado o no encontrado.',
+            loginRequired: 'Debes iniciar sesión para crear un campo',
         },
         player: {
             registerTitle: 'Registrar Nuevo Jugador',
@@ -253,6 +337,10 @@ export const translations = {
             noResults: 'No se encontraron jugadores.',
             activate: 'Activar Jugador',
             deactivate: 'Desactivar Jugador',
+            deleteSuccess: 'Jugador eliminado con éxito',
+            deleteError: 'Error al eliminar jugador: ',
+            deleteErrorEvents: 'Error al eliminar eventos del jugador',
+            deleteDenied: 'No se pudo eliminar el jugador. Permiso denegado o no encontrado.',
         },
         logger: {
             title: 'Eventos',
@@ -287,9 +375,32 @@ export const translations = {
             empty: 'No hay estadísticas para este período.',
         },
         footer: {
-            developedBy: 'Desarrollado por Eli',
+            developedBy: 'GoloReg Desarrollado por Eli',
             email: 'Correo',
             phone: 'Teléfono',
+        },
+        auth: {
+            signUpSuccess: '¡Registro exitoso! Por favor inicia sesión.',
+            signUpFailed: 'Error en el registro: ',
+            signInFailed: 'Error en el inicio de sesión: ',
+            invalidCredentials: 'Credenciales de inicio de sesión inválidas',
+            signOut: 'Cerrar Sesión',
+        },
+        event: {
+            deleteSuccess: 'Evento eliminado con éxito',
+            deleteError: 'Error al eliminar evento',
+            deleteDenied: 'No se pudo eliminar el evento. Permiso denegado.',
+        },
+        credits: {
+            addSuccess: 'Créditos agregados con éxito. Nuevo saldo: ',
+            addError: 'Error al agregar créditos: ',
+        },
+        session: {
+            startSuccess: 'Sesión iniciada con éxito',
+            startError: 'Error al iniciar sesión: ',
+            stopSuccess: 'Sesión finalizada. Cobrado: ',
+            stopError: 'Error al finalizar sesión: ',
+            creditsLabel: ' créditos.',
         }
     }
 };

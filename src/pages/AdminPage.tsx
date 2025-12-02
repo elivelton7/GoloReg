@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
-import { Lock, Trash2, LogOut, User, MapPin, Activity, CreditCard, Plus, Coins } from 'lucide-react';
+import { Lock, Trash2, LogOut, User, MapPin, Activity, CreditCard, Plus, Coins, Clock } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,17 +9,19 @@ export const AdminPage: React.FC = () => {
     const {
         currentUser, signOut, isAdmin, checkAdminStatus,
         deletePlayer, deleteField, deleteEvent,
-        fetchFields, fetchAllProfiles, addCredits
+        fetchFields, fetchAllProfiles, addCredits,
+        fetchOpenSessions, deleteSession
     } = useStore();
     const navigate = useNavigate();
 
-    const [activeTab, setActiveTab] = useState<'users' | 'players' | 'fields' | 'events'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'players' | 'fields' | 'events' | 'sessions'>('users');
 
     // Local state for admin data
     const [localFields, setLocalFields] = useState<any[]>([]);
     const [localPlayers, setLocalPlayers] = useState<any[]>([]);
     const [localEvents, setLocalEvents] = useState<any[]>([]);
     const [localUsers, setLocalUsers] = useState<any[]>([]);
+    const [localSessions, setLocalSessions] = useState<any[]>([]);
 
     // Filter state
     const [filterField, setFilterField] = useState('');
@@ -87,6 +89,11 @@ export const AdminPage: React.FC = () => {
         setLocalUsers(users);
     };
 
+    const fetchSessions = async () => {
+        const sessions = await fetchOpenSessions();
+        setLocalSessions(sessions);
+    };
+
     // Initial fetch if logged in
     useEffect(() => {
         if (currentUser) {
@@ -94,7 +101,9 @@ export const AdminPage: React.FC = () => {
             fetchFields('').then(setLocalFields);
             fetchAllPlayers();
             fetchAllEvents();
+            fetchAllEvents();
             fetchUsers();
+            fetchSessions();
         }
     }, [currentUser]);
 
@@ -103,7 +112,9 @@ export const AdminPage: React.FC = () => {
         if (currentUser) {
             if (activeTab === 'players') fetchAllPlayers();
             else if (activeTab === 'events') fetchAllEvents();
+            else if (activeTab === 'events') fetchAllEvents();
             else if (activeTab === 'users') fetchUsers();
+            else if (activeTab === 'sessions') fetchSessions();
         }
     }, [currentUser, filterField, filterPlayer, filterDate, activeTab]);
 
@@ -156,6 +167,15 @@ export const AdminPage: React.FC = () => {
                 await fetchAllEvents(); // Refresh list
             } catch (error) {
                 alert('Failed to delete event. Please check console for details.');
+            }
+        }
+    };
+
+    const handleDeleteSession = async (id: string) => {
+        if (window.confirm('Are you sure you want to delete this session? The user will NOT be charged.')) {
+            const success = await deleteSession(id);
+            if (success) {
+                await fetchSessions(); // Refresh list
             }
         }
     };
@@ -236,6 +256,15 @@ export const AdminPage: React.FC = () => {
                             )}
                         >
                             <Activity size={20} /> Events
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('sessions')}
+                            className={clsx(
+                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2 min-w-[120px]",
+                                activeTab === 'sessions' ? "text-red-600 border-b-2 border-red-600 bg-red-50" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            <Clock size={20} /> Active Sessions
                         </button>
                     </div>
 
@@ -427,58 +456,97 @@ export const AdminPage: React.FC = () => {
                                 )}
                             </div>
                         )}
+
+                        {activeTab === 'sessions' && (
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-lg">Active Sessions</h3>
+                                {localSessions.length === 0 ? (
+                                    <p className="text-gray-500">No active sessions found.</p>
+                                ) : (
+                                    <div className="divide-y divide-gray-100">
+                                        {localSessions.map(session => (
+                                            <div key={session.sessionId} className="py-3 flex items-center justify-between">
+                                                <div>
+                                                    <div className="font-medium flex items-center gap-2">
+                                                        {session.username}
+                                                        <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                                                            Active
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-500">
+                                                        Started: {new Date(session.startTime).toLocaleString()} ({session.durationMinutes} min ago)
+                                                    </div>
+                                                    <div className="text-xs text-gray-400">
+                                                        {session.email}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDeleteSession(session.sessionId)}
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Delete Session (No Charge)"
+                                                >
+                                                    <Trash2 size={20} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Credit Modal */}
-            {showCreditModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <Coins className="text-indigo-600" /> Add Credits
-                        </h3>
-                        <form onSubmit={handleAddCredits} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={creditAmount}
-                                    onChange={(e) => setCreditAmount(parseInt(e.target.value) || 0)}
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <input
-                                    type="text"
-                                    value={creditDescription}
-                                    onChange={(e) => setCreditDescription(e.target.value)}
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    required
-                                />
-                            </div>
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCreditModal(false)}
-                                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
-                                >
-                                    Add Credits
-                                </button>
-                            </div>
-                        </form>
+            {
+                showCreditModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <Coins className="text-indigo-600" /> Add Credits
+                            </h3>
+                            <form onSubmit={handleAddCredits} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={creditAmount}
+                                        onChange={(e) => setCreditAmount(parseInt(e.target.value) || 0)}
+                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <input
+                                        type="text"
+                                        value={creditDescription}
+                                        onChange={(e) => setCreditDescription(e.target.value)}
+                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                                <div className="flex gap-3 mt-6">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCreditModal(false)}
+                                        className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                                    >
+                                        Add Credits
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
