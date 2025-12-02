@@ -4,6 +4,11 @@ import { supabase } from '../lib/supabase';
 import type { Player, GameEvent, Field } from '../types';
 
 interface AppState {
+    // Auth State
+    currentUser: { id: string; username: string; email: string; balance: number } | null;
+    isAdmin: boolean;
+    activeSessionId: string | null;
+
     currentField: Field | null;
     players: Player[];
     events: GameEvent[];
@@ -13,10 +18,16 @@ interface AppState {
     showToast: (message: string, type?: 'success' | 'error', color?: string) => void;
     hideToast: () => void;
 
+    // Auth Actions
+    signUp: (email: string, password: string, username: string) => Promise<boolean>;
+    signIn: (email: string, password: string) => Promise<boolean>;
+    signOut: () => Promise<void>;
+    fetchProfile: () => Promise<void>;
+    checkAdminStatus: () => Promise<boolean>;
+
     // Field Actions
-    fetchFields: (query: string) => Promise<Field[]>;
-    createField: (code: string, description: string, password?: string) => Promise<Field | null>;
-    verifyFieldPassword: (fieldId: string, password: string) => Promise<boolean>;
+    fetchFields: (query?: string) => Promise<Field[]>;
+    createField: (code: string, description: string) => Promise<Field | null>;
     selectField: (field: Field) => Promise<void>;
     clearField: () => void;
 
@@ -33,19 +44,29 @@ interface AppState {
     ownerContact: { email: string | null; phone: string | null } | null;
     fetchOwnerContact: () => Promise<void>;
 
-    // Admin Actions
+    // Admin Actions (Legacy/Internal)
     adminUser: { id: string; username: string } | null;
-    loginAdmin: (username: string, password: string) => Promise<boolean>;
-    logoutAdmin: () => void;
     deletePlayer: (id: string) => Promise<void>;
     deleteField: (id: string) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     undoLastEvent: () => Promise<void>;
+
+    // Credit System Actions
+    addCredits: (userId: string, amount: number, description: string, reference?: string) => Promise<boolean>;
+    startSession: (userId: string) => Promise<string | null>; // Returns session ID
+    stopSession: (sessionId: string) => Promise<boolean>;
+    fetchUserBalance: (userId: string) => Promise<{ balance: number; transactions: any[] } | null>;
+
+    // Admin Actions (New)
+    fetchAllProfiles: () => Promise<{ id: string; username: string; email: string; balance: number }[]>;
 }
 
 export const useStore = create<AppState>()(
     persist(
         (set, get) => ({
+            currentUser: null,
+            isAdmin: false,
+            activeSessionId: null,
             currentField: null,
             players: [],
             events: [],
@@ -62,12 +83,111 @@ export const useStore = create<AppState>()(
 
             hideToast: () => set({ toast: null }),
 
-            fetchFields: async (query: string) => {
-                const { data, error } = await supabase
+            signUp: async (email, password, username) => {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            username: username
+                        }
+                    }
+                });
+
+                if (error) {
+                    get().showToast('Sign up failed: ' + error.message, 'error');
+                    return false;
+                }
+
+                if (data.user) {
+                    get().showToast('Sign up successful! Please sign in.');
+                    return true;
+                }
+                return false;
+            },
+
+            signIn: async (email, password) => {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    get().showToast('Sign in failed: ' + error.message, 'error');
+                    return false;
+                }
+
+                if (data.user) {
+                    await get().fetchProfile();
+                    await get().checkAdminStatus();
+                    return true;
+                }
+                return false;
+            },
+
+            signOut: async () => {
+                await supabase.auth.signOut();
+                set({ currentUser: null, isAdmin: false, activeSessionId: null, currentField: null, players: [], events: [] });
+            },
+
+            fetchProfile: async () => {
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (!user) {
+                    set({ currentUser: null });
+                    return;
+                }
+
+                const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching profile:', error);
+                    return;
+                }
+
+                if (profile) {
+                    set({
+                        currentUser: {
+                            id: user.id,
+                            email: user.email || '',
+                            username: profile.username || user.user_metadata?.username || 'User',
+                            balance: profile.saldo_creditos || 0
+                        }
+                    });
+                }
+            },
+
+            checkAdminStatus: async () => {
+                const { data, error } = await supabase.rpc('is_admin');
+
+                if (error) {
+                    console.error('Error checking admin status:', error);
+                    set({ isAdmin: false });
+                    return false;
+                }
+
+                set({ isAdmin: !!data });
+                return !!data;
+            },
+
+            fetchFields: async (query = '') => {
+                const { currentUser } = get();
+                if (!currentUser) return [];
+
+                let queryBuilder = supabase
                     .from('fields')
                     .select('*')
-                    .or(`code.eq.${query},description.ilike.%${query}%`)
-                    .limit(5);
+                    .eq('owner_id', currentUser.id); // Filter by owner
+
+                if (query) {
+                    queryBuilder = queryBuilder.or(`code.eq.${query},description.ilike.%${query}%`);
+                }
+
+                const { data, error } = await queryBuilder.limit(10);
 
                 if (error) {
                     console.error('Error fetching fields:', error);
@@ -77,41 +197,40 @@ export const useStore = create<AppState>()(
                     id: f.id,
                     code: f.code,
                     description: f.description,
+                    ownerId: f.owner_id,
                     createdAt: f.created_at
                 }));
             },
 
-            createField: async (code: string, description: string, password = '9999') => {
+            createField: async (code: string, description: string) => {
+                const { currentUser } = get();
+                if (!currentUser) {
+                    get().showToast('You must be logged in to create a field', 'error');
+                    return null;
+                }
+
                 const { data, error } = await supabase
                     .from('fields')
-                    .insert([{ code: code.toUpperCase(), description, password }])
+                    .insert([{
+                        code: code.toUpperCase(),
+                        description,
+                        owner_id: currentUser.id
+                    }])
                     .select()
                     .single();
 
                 if (error) {
                     console.error('Error creating field:', error);
+                    get().showToast('Failed to create field: ' + error.message, 'error');
                     return null;
                 }
                 return {
                     id: data.id,
                     code: data.code,
                     description: data.description,
+                    ownerId: data.owner_id,
                     createdAt: data.created_at
                 };
-            },
-
-            verifyFieldPassword: async (fieldId: string, password: string) => {
-                const { data, error } = await supabase
-                    .from('fields')
-                    .select('id')
-                    .eq('id', fieldId)
-                    .eq('password', password)
-                    .single();
-
-                if (error || !data) {
-                    return false;
-                }
-                return true;
             },
 
             selectField: async (field: Field) => {
@@ -253,18 +372,10 @@ export const useStore = create<AppState>()(
             },
 
             fetchOwnerContact: async () => {
-                const { players } = get();
-                const owner = players.find(p => p.name.toLowerCase() === 'eli');
-
-                if (!owner) {
-                    set({ ownerContact: null });
-                    return;
-                }
-
                 const { data, error } = await supabase
                     .from('contacts')
                     .select('*')
-                    .eq('player_id', owner.id)
+                    .ilike('name', 'Eli') // Fetch contact with name 'Eli' (case insensitive)
                     .single();
 
                 if (error && error.code !== 'PGRST116') {
@@ -278,25 +389,7 @@ export const useStore = create<AppState>()(
                 }
             },
 
-            loginAdmin: async (username, password) => {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('*')
-                    .eq('username', username)
-                    .eq('password', password) // Plain text for now as requested
-                    .eq('is_admin', true)
-                    .single();
-
-                if (error || !data) {
-                    return false;
-                }
-
-                set({ adminUser: { id: data.id, username: data.username } });
-                return true;
-            },
-
-            logoutAdmin: () => set({ adminUser: null }),
-
+            // Admin Actions (Legacy/Internal)
             deletePlayer: async (id) => {
                 console.log('Attempting to delete player:', id);
                 // 1. Delete events for this player first (cascade manually)
@@ -419,15 +512,120 @@ export const useStore = create<AppState>()(
                 get().showToast('Event deleted successfully');
             },
 
-            undoLastEvent: async () => {
+            undoLastEvent: () => {
                 const { events } = get();
-                if (events.length === 0) return;
+                if (events.length === 0) return Promise.resolve();
 
                 // Sort by timestamp desc to get the last one
                 const sortedEvents = [...events].sort((a, b) => b.timestamp - a.timestamp);
                 const lastEvent = sortedEvents[0];
 
-                await get().deleteEvent(lastEvent.id);
+                return get().deleteEvent(lastEvent.id);
+            },
+
+            // Credit System Implementation
+            addCredits: async (userId, amount, description, reference) => {
+                const { data, error } = await supabase.rpc('add_credits', {
+                    p_user_id: userId,
+                    p_quantidade: amount,
+                    p_descricao: description,
+                    p_referencia: reference
+                });
+
+                if (error) {
+                    console.error('Error adding credits:', error);
+                    get().showToast('Failed to add credits: ' + error.message, 'error');
+                    return false;
+                }
+
+                if (data && data.success) {
+                    get().showToast(`Credits added successfully. New balance: ${data.new_balance}`);
+                    // Update local balance
+                    set(state => state.currentUser ? { currentUser: { ...state.currentUser, balance: data.new_balance } } : {});
+                    return true;
+                } else {
+                    get().showToast('Failed to add credits: ' + (data?.error || 'Unknown error'), 'error');
+                    return false;
+                }
+            },
+
+            startSession: async (userId) => {
+                const { data, error } = await supabase.rpc('start_session', {
+                    p_user_id: userId
+                });
+
+                if (error) {
+                    console.error('Error starting session:', error);
+                    get().showToast('Failed to start session: ' + error.message, 'error');
+                    return null;
+                }
+
+                if (data && data.success) {
+                    get().showToast('Session started successfully');
+                    set({ activeSessionId: data.session_id });
+                    return data.session_id;
+                } else {
+                    get().showToast('Failed to start session: ' + (data?.error || 'Unknown error'), 'error');
+                    return null;
+                }
+            },
+
+            stopSession: async (sessionId) => {
+                const { data, error } = await supabase.rpc('stop_session', {
+                    p_session_id: sessionId
+                });
+
+                if (error) {
+                    console.error('Error stopping session:', error);
+                    get().showToast('Failed to stop session: ' + error.message, 'error');
+                    return false;
+                }
+
+                if (data && data.success) {
+                    get().showToast(`Session stopped. Charged: ${data.credits_charged} credits.`);
+                    set({ activeSessionId: null });
+                    // Refresh balance
+                    const { currentUser } = get();
+                    if (currentUser) {
+                        const balanceData = await get().fetchUserBalance(currentUser.id);
+                        if (balanceData) {
+                            set(state => state.currentUser ? { currentUser: { ...state.currentUser, balance: balanceData.balance } } : {});
+                        }
+                    }
+                    return true;
+                } else {
+                    get().showToast('Failed to stop session: ' + (data?.error || 'Unknown error'), 'error');
+                    return false;
+                }
+            },
+
+            fetchUserBalance: async (userId) => {
+                const { data, error } = await supabase.rpc('get_user_balance', {
+                    p_user_id: userId
+                });
+
+                if (error) {
+                    console.error('Error fetching balance:', error);
+                    return null;
+                }
+
+                return data;
+            },
+
+            fetchAllProfiles: async () => {
+                const { data, error } = await supabase.rpc('get_all_profiles');
+
+                if (error) {
+                    console.error('Error fetching profiles:', error);
+                    return [];
+                }
+
+                return (data || []).map((p: any) => ({
+                    id: p.id,
+                    username: p.username,
+                    email: p.email,
+                    balance: p.saldo_creditos
+                }));
             },
         }),
         {
@@ -435,8 +633,11 @@ export const useStore = create<AppState>()(
             storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
                 adminUser: state.adminUser,
-                currentField: state.currentField
-            }), // Only persist adminUser and currentField
+                currentField: state.currentField,
+                currentUser: state.currentUser,
+                isAdmin: state.isAdmin,
+                activeSessionId: state.activeSessionId
+            }), // Persist auth state
         }
     )
 );

@@ -10,12 +10,17 @@ import { clsx } from 'clsx';
 export const Layout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { currentField, clearField } = useStore();
+    const { currentField, clearField, fetchOwnerContact, currentUser, fetchProfile, signOut } = useStore();
     const { t, currentLanguage, setLanguage } = useLanguage();
 
-    const handleLogout = () => {
-        clearField();
-        navigate('/');
+    React.useEffect(() => {
+        fetchProfile();
+        fetchOwnerContact();
+    }, []);
+
+    const handleLogout = async () => {
+        await signOut();
+        navigate('/login');
     };
 
     const navItems = [
@@ -29,12 +34,12 @@ export const Layout: React.FC = () => {
             <Toast />
             <header className="bg-white shadow-sm sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <Link to="/players" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                         <div className="bg-indigo-600 p-2 rounded-lg">
                             <Activity className="text-white" size={20} />
                         </div>
                         <h1 className="text-xl font-bold text-gray-900 hidden sm:block">GoloReg</h1>
-                    </div>
+                    </Link>
 
                     <div className="flex items-center gap-4">
                         <select
@@ -47,19 +52,53 @@ export const Layout: React.FC = () => {
                             <option value="es">ES</option>
                         </select>
 
-                        {currentField && (
+                        {currentUser && (
                             <div className="flex items-center gap-4">
-                                <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-full">
-                                    <MapPin size={16} />
-                                    <span className="font-medium">{currentField.code}</span>
+                                <div className="hidden md:flex items-center gap-2 text-sm font-medium text-gray-700 bg-indigo-50 px-3 py-1.5 rounded-full">
+                                    <span className="text-indigo-600 font-bold">{currentUser.balance}</span>
+                                    <span className="text-indigo-600 text-xs uppercase tracking-wider">Credits</span>
                                 </div>
-                                <button
-                                    onClick={handleLogout}
-                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title={t('field.changeField')}
-                                >
-                                    <LogOut size={20} />
-                                </button>
+
+                                {currentField && (
+                                    <div className="hidden sm:flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-full">
+                                        <MapPin size={16} />
+                                        <span className="font-medium">{currentField.code}</span>
+                                    </div>
+                                )}
+
+                                <div className="relative group">
+                                    <button
+                                        className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                    >
+                                        <Users size={20} />
+                                    </button>
+
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all transform origin-top-right z-50">
+                                        <div className="px-4 py-2 border-b border-gray-50">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{currentUser.username}</p>
+                                            <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                clearField();
+                                                navigate('/field-selection');
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                            <MapPin size={16} />
+                                            {t('field.changeField')}
+                                        </button>
+
+                                        <button
+                                            onClick={handleLogout}
+                                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                        >
+                                            <LogOut size={16} />
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
