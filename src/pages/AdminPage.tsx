@@ -112,7 +112,7 @@ export const AdminPage: React.FC = () => {
         if (currentUser) {
             if (activeTab === 'players') fetchAllPlayers();
             else if (activeTab === 'events') fetchAllEvents();
-            else if (activeTab === 'events') fetchAllEvents();
+
             else if (activeTab === 'users') fetchUsers();
             else if (activeTab === 'sessions') fetchSessions();
         }
