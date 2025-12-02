@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Plus, ArrowRight, Lock, Search } from 'lucide-react';
+import { MapPin, Plus, ArrowRight, Search } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const FieldSelection: React.FC = () => {
-    const { fetchFields, createField, selectField, verifyFieldPassword, currentField } = useStore();
+    const { fetchFields, createField, selectField, currentField } = useStore();
     const { t } = useLanguage();
     const navigate = useNavigate();
 
@@ -21,26 +21,27 @@ export const FieldSelection: React.FC = () => {
 
     const [newFieldCode, setNewFieldCode] = useState('');
     const [newFieldDesc, setNewFieldDesc] = useState('');
-    const [newFieldPass, setNewFieldPass] = useState('');
 
-    const [selectedField, setSelectedField] = useState<any | null>(null);
-    const [passwordInput, setPasswordInput] = useState('');
+    useEffect(() => {
+        loadFields();
+    }, []);
+
+    const loadFields = async () => {
+        const results = await fetchFields();
+        setFields(results);
+    };
 
     const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const query = e.target.value;
         setSearchQuery(query);
-        if (query.length > 2) {
-            const results = await fetchFields(query);
-            setFields(results);
-        } else {
-            setFields([]);
-        }
+        const results = await fetchFields(query);
+        setFields(results);
     };
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newFieldCode && newFieldDesc) {
-            const field = await createField(newFieldCode, newFieldDesc, newFieldPass || undefined);
+            const field = await createField(newFieldCode, newFieldDesc);
             if (field) {
                 await selectField(field);
                 navigate('/players');
@@ -48,74 +49,10 @@ export const FieldSelection: React.FC = () => {
         }
     };
 
-    const handleFieldClick = (field: any) => {
-        setSelectedField(field);
-        setPasswordInput('');
+    const handleFieldClick = async (field: any) => {
+        await selectField(field);
+        navigate('/players');
     };
-
-    const handleVerifyAndEnter = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedField) return;
-
-        const isValid = await verifyFieldPassword(selectedField.id, passwordInput);
-        if (isValid) {
-            await selectField(selectedField);
-            navigate('/players');
-        } else {
-            // Toast is handled in store or we can add local error state
-            alert(t('field.incorrectPassword'));
-        }
-    };
-
-    if (selectedField) {
-        return (
-            <div className="min-h-[80vh] flex items-center justify-center">
-                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-100">
-                    <div className="text-center mb-8">
-                        <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Lock className="text-indigo-600" size={32} />
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900">{t('field.accessPassword')}</h2>
-                        <p className="text-gray-500 mt-2">
-                            {selectedField.code} - {selectedField.description}
-                        </p>
-                    </div>
-
-                    <form onSubmit={handleVerifyAndEnter} className="space-y-4 animate-in fade-in slide-in-from-right-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                {t('field.enterPasswordPlaceholder')}
-                            </label>
-                            <input
-                                type="password"
-                                value={passwordInput}
-                                onChange={(e) => setPasswordInput(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-lg"
-                                placeholder="****"
-                                autoFocus
-                            />
-                        </div>
-
-                        <div className="flex gap-3 pt-2">
-                            <button
-                                type="button"
-                                onClick={() => setSelectedField(null)}
-                                className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-                            >
-                                {t('common.back')}
-                            </button>
-                            <button
-                                type="submit"
-                                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-                            >
-                                {t('field.accessButton')} <ArrowRight size={20} />
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center">
@@ -143,19 +80,22 @@ export const FieldSelection: React.FC = () => {
                         </div>
 
                         <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {fields.map((field) => (
-                                <button
-                                    key={field.id}
-                                    onClick={() => handleFieldClick(field)}
-                                    className="w-full p-4 text-left rounded-xl border border-gray-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
-                                >
-                                    <div className="font-semibold text-gray-900 group-hover:text-indigo-700 flex items-center justify-between">
-                                        {field.code}
-                                        <Lock size={14} className="text-gray-400 group-hover:text-indigo-400" />
-                                    </div>
-                                    <div className="text-sm text-gray-500">{field.description}</div>
-                                </button>
-                            ))}
+                            {fields.length > 0 ? (
+                                fields.map((field) => (
+                                    <button
+                                        key={field.id}
+                                        onClick={() => handleFieldClick(field)}
+                                        className="w-full p-4 text-left rounded-xl border border-gray-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+                                    >
+                                        <div className="font-semibold text-gray-900 group-hover:text-indigo-700 flex items-center justify-between">
+                                            {field.code}
+                                        </div>
+                                        <div className="text-sm text-gray-500">{field.description}</div>
+                                    </button>
+                                ))
+                            ) : (
+                                <p className="text-center text-gray-500 py-4">No fields found. Create one!</p>
+                            )}
                         </div>
 
                         <div className="pt-4 border-t border-gray-100">
@@ -190,16 +130,7 @@ export const FieldSelection: React.FC = () => {
                                 placeholder="Campo Society Principal"
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.password')}</label>
-                            <input
-                                type="text"
-                                value={newFieldPass}
-                                onChange={(e) => setNewFieldPass(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                                placeholder="9999"
-                            />
-                        </div>
+
                         <div className="pt-2 space-y-3">
                             <button
                                 type="submit"

@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
-import { Lock, Trash2, LogOut, User, MapPin, Activity } from 'lucide-react';
+import { Lock, Trash2, LogOut, User, MapPin, Activity, CreditCard, Plus, Coins } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useNavigate } from 'react-router-dom';
 
 export const AdminPage: React.FC = () => {
     const {
-        adminUser, loginAdmin, logoutAdmin,
+        currentUser, signOut, isAdmin, checkAdminStatus,
         deletePlayer, deleteField, deleteEvent,
-        fetchFields
+        fetchFields, fetchAllProfiles, addCredits
     } = useStore();
+    const navigate = useNavigate();
 
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [activeTab, setActiveTab] = useState<'players' | 'fields' | 'events'>('players');
-    const [isLoading, setIsLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'users' | 'players' | 'fields' | 'events'>('users');
 
     // Local state for admin data
     const [localFields, setLocalFields] = useState<any[]>([]);
     const [localPlayers, setLocalPlayers] = useState<any[]>([]);
     const [localEvents, setLocalEvents] = useState<any[]>([]);
+    const [localUsers, setLocalUsers] = useState<any[]>([]);
 
     // Filter state
     const [filterField, setFilterField] = useState('');
     const [filterPlayer, setFilterPlayer] = useState('');
     const [filterDate, setFilterDate] = useState('');
+    const [filterUser, setFilterUser] = useState('');
+
+    // Credit Modal State
+    const [showCreditModal, setShowCreditModal] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [creditAmount, setCreditAmount] = useState(0);
+    const [creditDescription, setCreditDescription] = useState('Admin Bonus');
 
     // Fetch data functions
     const fetchAllPlayers = async () => {
@@ -75,33 +82,46 @@ export const AdminPage: React.FC = () => {
         else setLocalEvents(data || []);
     };
 
+    const fetchUsers = async () => {
+        const users = await fetchAllProfiles();
+        setLocalUsers(users);
+    };
+
     // Initial fetch if logged in
     useEffect(() => {
-        if (adminUser) {
+        if (currentUser) {
+            checkAdminStatus();
             fetchFields('').then(setLocalFields);
             fetchAllPlayers();
             fetchAllEvents();
+            fetchUsers();
         }
-    }, [adminUser]);
+    }, [currentUser]);
 
     // Refetch data when filters change
     useEffect(() => {
-        if (adminUser) {
-            if (activeTab === 'players') {
-                fetchAllPlayers();
-            } else if (activeTab === 'events') {
-                fetchAllEvents();
-            }
+        if (currentUser) {
+            if (activeTab === 'players') fetchAllPlayers();
+            else if (activeTab === 'events') fetchAllEvents();
+            else if (activeTab === 'users') fetchUsers();
         }
-    }, [adminUser, filterField, filterPlayer, filterDate, activeTab]);
+    }, [currentUser, filterField, filterPlayer, filterDate, activeTab]);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogout = async () => {
+        await signOut();
+        navigate('/login');
+    };
+
+    const handleAddCredits = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
-        const success = await loginAdmin(username, password);
-        setIsLoading(false);
-        if (!success) {
-            alert('Invalid credentials');
+        if (!selectedUserId || creditAmount <= 0) return;
+
+        const success = await addCredits(selectedUserId, creditAmount, creditDescription, 'ADMIN_MANUAL');
+        if (success) {
+            setShowCreditModal(false);
+            setCreditAmount(0);
+            setSelectedUserId(null);
+            fetchUsers(); // Refresh balance
         }
     };
 
@@ -140,43 +160,22 @@ export const AdminPage: React.FC = () => {
         }
     };
 
-    if (!adminUser) {
+    if (!currentUser || !isAdmin) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-100">
-                    <div className="text-center mb-8">
-                        <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Lock className="text-red-600" size={32} />
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900">Admin Access</h2>
-                    </div>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
-                        >
-                            {isLoading ? 'Checking...' : 'Login'}
-                        </button>
-                    </form>
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+                    <p className="text-gray-600 mb-4">
+                        {currentUser
+                            ? `User ${currentUser.username} is not an administrator.`
+                            : "You must be logged in to access the admin dashboard."}
+                    </p>
+                    <button
+                        onClick={() => navigate('/login')}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    >
+                        {currentUser ? "Switch Account" : "Go to Login"}
+                    </button>
                 </div>
             </div>
         );
@@ -190,9 +189,9 @@ export const AdminPage: React.FC = () => {
                         <Lock className="text-red-600" /> Admin Dashboard
                     </h1>
                     <div className="flex items-center gap-4">
-                        <span className="text-gray-600">Welcome, {adminUser.username}</span>
+                        <span className="text-gray-600">Welcome, {currentUser.username}</span>
                         <button
-                            onClick={logoutAdmin}
+                            onClick={handleLogout}
                             className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                             <LogOut size={20} /> Logout
@@ -201,11 +200,20 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div className="flex border-b border-gray-100">
+                    <div className="flex border-b border-gray-100 overflow-x-auto">
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            className={clsx(
+                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2 min-w-[120px]",
+                                activeTab === 'users' ? "text-red-600 border-b-2 border-red-600 bg-red-50" : "text-gray-500 hover:text-gray-700"
+                            )}
+                        >
+                            <CreditCard size={20} /> Users & Credits
+                        </button>
                         <button
                             onClick={() => setActiveTab('players')}
                             className={clsx(
-                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2",
+                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2 min-w-[120px]",
                                 activeTab === 'players' ? "text-red-600 border-b-2 border-red-600 bg-red-50" : "text-gray-500 hover:text-gray-700"
                             )}
                         >
@@ -214,7 +222,7 @@ export const AdminPage: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('fields')}
                             className={clsx(
-                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2",
+                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2 min-w-[120px]",
                                 activeTab === 'fields' ? "text-red-600 border-b-2 border-red-600 bg-red-50" : "text-gray-500 hover:text-gray-700"
                             )}
                         >
@@ -223,7 +231,7 @@ export const AdminPage: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('events')}
                             className={clsx(
-                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2",
+                                "flex-1 py-4 font-medium text-center transition-colors flex items-center justify-center gap-2 min-w-[120px]",
                                 activeTab === 'events' ? "text-red-600 border-b-2 border-red-600 bg-red-50" : "text-gray-500 hover:text-gray-700"
                             )}
                         >
@@ -232,6 +240,53 @@ export const AdminPage: React.FC = () => {
                     </div>
 
                     <div className="p-6">
+                        {activeTab === 'users' && (
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-lg">Manage Users & Credits</h3>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <input
+                                        type="text"
+                                        placeholder="Filter by Username or Email..."
+                                        value={filterUser}
+                                        onChange={(e) => setFilterUser(e.target.value)}
+                                        className="px-4 py-2 border rounded-lg w-full"
+                                    />
+                                </div>
+
+                                <div className="divide-y divide-gray-100">
+                                    {localUsers
+                                        .filter(u =>
+                                            u.username.toLowerCase().includes(filterUser.toLowerCase()) ||
+                                            u.email.toLowerCase().includes(filterUser.toLowerCase())
+                                        )
+                                        .map(user => (
+                                            <div key={user.id} className="py-4 flex items-center justify-between">
+                                                <div>
+                                                    <div className="font-medium text-gray-900">{user.username}</div>
+                                                    <div className="text-sm text-gray-500">{user.email}</div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <div className="font-bold text-indigo-600">{user.balance} Credits</div>
+                                                        <div className="text-xs text-gray-400">Current Balance</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedUserId(user.id);
+                                                            setShowCreditModal(true);
+                                                        }}
+                                                        className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-2"
+                                                    >
+                                                        <Plus size={16} /> Add Credits
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    {localUsers.length === 0 && <p className="text-gray-500 text-center py-4">No users found.</p>}
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'players' && (
                             <div className="space-y-4">
                                 <h3 className="font-semibold text-lg">Manage Players (All Fields)</h3>
@@ -375,6 +430,55 @@ export const AdminPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Credit Modal */}
+            {showCreditModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <Coins className="text-indigo-600" /> Add Credits
+                        </h3>
+                        <form onSubmit={handleAddCredits} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={creditAmount}
+                                    onChange={(e) => setCreditAmount(parseInt(e.target.value) || 0)}
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <input
+                                    type="text"
+                                    value={creditDescription}
+                                    onChange={(e) => setCreditDescription(e.target.value)}
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    required
+                                />
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreditModal(false)}
+                                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                                >
+                                    Add Credits
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

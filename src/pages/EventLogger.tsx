@@ -1,17 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import type { GameEvent } from '../types';
-import { Dribbble, Footprints, Hand, Flag, Play, Pause, RotateCcw, Undo2 } from 'lucide-react';
+import { Dribbble, Footprints, Hand, Flag, Play, Pause, RotateCcw, Undo2, Timer, AlertCircle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const EventLogger: React.FC = () => {
-    const { players, addEvent, showToast, undoLastEvent, fetchEvents, currentField } = useStore();
+    const {
+        players,
+        addEvent,
+        showToast,
+        undoLastEvent,
+        fetchEvents,
+        currentField,
+        activeSessionId,
+        startSession,
+        stopSession,
+        currentUser
+    } = useStore();
     const { t } = useLanguage();
 
     useEffect(() => {
-        if (currentField) {
-            fetchEvents();
-        }
+        const loadData = async () => {
+            if (currentField) {
+                await useStore.getState().fetchPlayers(); // Ensure players are loaded first
+                await fetchEvents();
+            }
+        };
+        loadData();
     }, [currentField]);
 
     // Timer State
@@ -20,6 +35,9 @@ export const EventLogger: React.FC = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
     const intervalRef = useRef<number | null>(null);
+
+    // Session State
+    const [isStartingSession, setIsStartingSession] = useState(false);
 
     useEffect(() => {
         if (isRunning) {
@@ -33,6 +51,30 @@ export const EventLogger: React.FC = () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
     }, [isRunning]);
+
+    // Low Credit Warning Logic
+    const warned10Ref = useRef(false);
+    const warned5Ref = useRef(false);
+
+    useEffect(() => {
+        if (!currentUser || !isRunning) return;
+
+        const balanceInSeconds = (currentUser.balance || 0) * 60;
+        const secondsUsed = time;
+        const secondsRemaining = balanceInSeconds - secondsUsed;
+
+        // Warning at 10 minutes (600 seconds)
+        if (secondsRemaining <= 600 && secondsRemaining > 590 && !warned10Ref.current) {
+            showToast(t('logger.warning10min') || 'Warning: 10 minutes of credit remaining!', 'error');
+            warned10Ref.current = true;
+        }
+
+        // Warning at 5 minutes (300 seconds)
+        if (secondsRemaining <= 300 && secondsRemaining > 290 && !warned5Ref.current) {
+            showToast(t('logger.warning5min') || 'Urgent: Only 5 minutes of credit remaining!', 'error');
+            warned5Ref.current = true;
+        }
+    }, [time, currentUser, isRunning, showToast, t]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -62,6 +104,11 @@ export const EventLogger: React.FC = () => {
     };
 
     const handleLog = async (playerId: string, type: GameEvent['type']) => {
+        if (!activeSessionId) {
+            showToast('You must start a session to log events', 'error');
+            return;
+        }
+
         await addEvent(playerId, type);
         const player = players.find(p => p.id === playerId);
 
@@ -73,10 +120,69 @@ export const EventLogger: React.FC = () => {
         showToast(`${type} ${t('logger.recorded')} ${player?.name}!`, 'success', color);
     };
 
+    const handleStartSession = async () => {
+        if (!currentUser) return;
+        setIsStartingSession(true);
+        const sessionId = await startSession(currentUser.id);
+        setIsStartingSession(false);
+        if (sessionId) {
+            setIsRunning(true); // Auto-start timer
+        }
+    };
+
+    const handleStopSession = async () => {
+        if (!activeSessionId) return;
+        if (window.confirm(t('logger.confirmStop'))) {
+            const success = await stopSession(activeSessionId);
+            if (success) {
+                setIsRunning(false);
+            }
+        }
+    };
+
+    if (!activeSessionId) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+                <div className="bg-indigo-100 p-6 rounded-full">
+                    <Timer className="w-16 h-16 text-indigo-600" />
+                </div>
+                <div className="max-w-md space-y-2">
+                    <h2 className="text-2xl font-bold text-gray-900">{t('logger.startSessionTitle')}</h2>
+                    <p className="text-gray-500">
+                        {t('logger.startSessionDesc')}
+                        <br />
+                        {t('logger.creditsDeducted')} ({currentUser?.balance || 0} {t('logger.creditsAvailable')}).
+                    </p>
+                </div>
+                <button
+                    onClick={handleStartSession}
+                    disabled={isStartingSession || (currentUser?.balance || 0) <= 0}
+                    className="px-8 py-4 bg-indigo-600 text-white text-lg font-semibold rounded-2xl hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                >
+                    {isStartingSession ? t('logger.starting') : t('logger.startSessionButton')}
+                    {!isStartingSession && <Play size={24} fill="currentColor" />}
+                </button>
+                {(currentUser?.balance || 0) <= 0 && (
+                    <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+                        <AlertCircle size={20} />
+                        <span>{t('logger.insufficientCredits')}</span>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">{t('logger.title')}</h2>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-bold text-gray-900">{t('logger.title')}</h2>
+                    <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full font-medium">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        {t('logger.sessionActive')}
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
                         {isEditing ? (
@@ -116,9 +222,13 @@ export const EventLogger: React.FC = () => {
                             </button>
                         </div>
                     </div>
-                    <div className="text-sm text-gray-500 hidden sm:block">
-                        {new Date().toLocaleDateString()}
-                    </div>
+
+                    <button
+                        onClick={handleStopSession}
+                        className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors text-sm"
+                    >
+                        {t('logger.stopSession')}
+                    </button>
                 </div>
             </div>
 

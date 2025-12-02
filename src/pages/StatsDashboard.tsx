@@ -10,9 +10,20 @@ type SortKey = 'goals' | 'assists' | 'saves' | 'fouls';
 type SortDirection = 'asc' | 'desc';
 
 export const StatsDashboard: React.FC = () => {
-    const { players, events } = useStore();
+    const { players, events, currentField, fetchPlayers, fetchEvents } = useStore();
     const { t } = useLanguage();
     const [period, setPeriod] = useState<Period>('DAY');
+
+    // Fetch data on mount if field is selected
+    React.useEffect(() => {
+        const loadData = async () => {
+            if (currentField) {
+                await fetchPlayers();
+                await fetchEvents();
+            }
+        };
+        loadData();
+    }, [currentField]);
     const [date] = useState(new Date());
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({
         key: 'goals',
