@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
+import { getTranslation } from '../utils/i18nUtils';
 import type { Player, GameEvent, Field } from '../types';
 
 interface AppState {
@@ -59,6 +60,8 @@ interface AppState {
 
     // Admin Actions (New)
     fetchAllProfiles: () => Promise<{ id: string; username: string; email: string; balance: number }[]>;
+    fetchOpenSessions: () => Promise<{ sessionId: string; userId: string; username: string; email: string; startTime: string; durationMinutes: number }[]>;
+    deleteSession: (sessionId: string) => Promise<boolean>;
 }
 
 export const useStore = create<AppState>()(
@@ -95,27 +98,31 @@ export const useStore = create<AppState>()(
                 });
 
                 if (error) {
-                    get().showToast('Sign up failed: ' + error.message, 'error');
+                    get().showToast(getTranslation('auth.signUpFailed') + error.message, 'error');
                     return false;
                 }
 
                 if (data.user) {
-                    get().showToast('Sign up successful! Please sign in.');
+                    get().showToast(getTranslation('auth.signUpSuccess'));
                     return true;
                 }
                 return false;
             },
 
             signIn: async (email, password) => {
+                console.log('Attempting sign in for:', email);
                 const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password
                 });
 
                 if (error) {
-                    get().showToast('Sign in failed: ' + error.message, 'error');
+                    console.error('Sign in error:', error);
+                    get().showToast(getTranslation('auth.signInFailed') + (error.message === 'Invalid login credentials' ? getTranslation('auth.invalidCredentials') : error.message), 'error');
                     return false;
                 }
+
+                console.log('Sign in successful, user:', data.user);
 
                 if (data.user) {
                     await get().fetchProfile();
@@ -132,8 +139,10 @@ export const useStore = create<AppState>()(
 
             fetchProfile: async () => {
                 const { data: { user } } = await supabase.auth.getUser();
+                console.log('Fetching profile, user from auth:', user);
 
                 if (!user) {
+                    console.warn('No user found in auth.getUser()');
                     set({ currentUser: null });
                     return;
                 }
@@ -150,6 +159,7 @@ export const useStore = create<AppState>()(
                 }
 
                 if (profile) {
+                    console.log('Profile fetched:', profile);
                     set({
                         currentUser: {
                             id: user.id,
@@ -158,6 +168,20 @@ export const useStore = create<AppState>()(
                             balance: profile.saldo_creditos || 0
                         }
                     });
+
+                    // Check for active session
+                    const { data: activeSession } = await supabase
+                        .from('usage_sessions')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .is('end_time', null) // Check if end_time is null (open session)
+                        .eq('status', 'ABERTA') // Double check status
+                        .maybeSingle();
+
+                    if (activeSession) {
+                        console.log('Found active session:', activeSession.id);
+                        set({ activeSessionId: activeSession.id });
+                    }
                 }
             },
 
@@ -205,7 +229,7 @@ export const useStore = create<AppState>()(
             createField: async (code: string, description: string) => {
                 const { currentUser } = get();
                 if (!currentUser) {
-                    get().showToast('You must be logged in to create a field', 'error');
+                    get().showToast(getTranslation('field.loginRequired'), 'error');
                     return null;
                 }
 
@@ -221,7 +245,7 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error creating field:', error);
-                    get().showToast('Failed to create field: ' + error.message, 'error');
+                    get().showToast(getTranslation('field.createError') + error.message, 'error');
                     return null;
                 }
                 return {
@@ -400,7 +424,7 @@ export const useStore = create<AppState>()(
 
                 if (eventsError) {
                     console.error('Error deleting player events:', eventsError);
-                    get().showToast('Failed to delete player events', 'error');
+                    get().showToast(getTranslation('player.deleteErrorEvents'), 'error');
                     throw eventsError;
                 }
 
@@ -414,18 +438,18 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error deleting player:', error);
-                    get().showToast('Failed to delete player: ' + error.message, 'error');
+                    get().showToast(getTranslation('player.deleteError') + error.message, 'error');
                     throw error;
                 }
 
                 if (count === 0) {
                     console.warn('No player deleted. RLS or ID mismatch?');
-                    get().showToast('Could not delete player. Permission denied or not found.', 'error');
+                    get().showToast(getTranslation('player.deleteDenied'), 'error');
                     throw new Error('Delete failed: No rows affected');
                 }
 
                 set(state => ({ players: state.players.filter(p => p.id !== id) }));
-                get().showToast('Player deleted successfully');
+                get().showToast(getTranslation('player.deleteSuccess'));
             },
 
             deleteField: async (id) => {
@@ -447,7 +471,7 @@ export const useStore = create<AppState>()(
 
                     if (eventsError) {
                         console.error('Error deleting field events:', eventsError);
-                        get().showToast('Failed to delete field events', 'error');
+                        get().showToast(getTranslation('field.deleteErrorEvents'), 'error');
                         throw eventsError;
                     }
 
@@ -459,7 +483,7 @@ export const useStore = create<AppState>()(
 
                     if (playersError) {
                         console.error('Error deleting field players:', playersError);
-                        get().showToast('Failed to delete field players', 'error');
+                        get().showToast(getTranslation('field.deleteErrorPlayers'), 'error');
                         throw playersError;
                     }
                 }
@@ -474,13 +498,13 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error deleting field:', error);
-                    get().showToast('Failed to delete field: ' + error.message, 'error');
+                    get().showToast(getTranslation('field.deleteError') + error.message, 'error');
                     throw error;
                 }
 
                 if (count === 0) {
                     console.warn('No field deleted. RLS or ID mismatch?');
-                    get().showToast('Could not delete field. Permission denied or not found.', 'error');
+                    get().showToast(getTranslation('field.deleteDenied'), 'error');
                     throw new Error('Delete failed: No rows affected');
                 }
 
@@ -488,7 +512,7 @@ export const useStore = create<AppState>()(
                 if (get().currentField?.id === id) {
                     get().clearField();
                 }
-                get().showToast('Field deleted successfully');
+                get().showToast(getTranslation('field.deleteSuccess'));
             },
 
             deleteEvent: async (id) => {
@@ -499,17 +523,17 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error deleting event:', error);
-                    get().showToast('Failed to delete event', 'error');
+                    get().showToast(getTranslation('event.deleteError'), 'error');
                     throw error;
                 }
 
                 if (count === 0) {
-                    get().showToast('Could not delete event. Permission denied.', 'error');
+                    get().showToast(getTranslation('event.deleteDenied'), 'error');
                     throw new Error('Delete failed: No rows affected');
                 }
 
                 set(state => ({ events: state.events.filter(e => e.id !== id) }));
-                get().showToast('Event deleted successfully');
+                get().showToast(getTranslation('event.deleteSuccess'));
             },
 
             undoLastEvent: () => {
@@ -534,17 +558,17 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error adding credits:', error);
-                    get().showToast('Failed to add credits: ' + error.message, 'error');
+                    get().showToast(getTranslation('credits.addError') + error.message, 'error');
                     return false;
                 }
 
                 if (data && data.success) {
-                    get().showToast(`Credits added successfully. New balance: ${data.new_balance}`);
+                    get().showToast(getTranslation('credits.addSuccess') + data.new_balance);
                     // Update local balance
                     set(state => state.currentUser ? { currentUser: { ...state.currentUser, balance: data.new_balance } } : {});
                     return true;
                 } else {
-                    get().showToast('Failed to add credits: ' + (data?.error || 'Unknown error'), 'error');
+                    get().showToast(getTranslation('credits.addError') + (data?.error || 'Unknown error'), 'error');
                     return false;
                 }
             },
@@ -556,16 +580,35 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error starting session:', error);
-                    get().showToast('Failed to start session: ' + error.message, 'error');
+
+                    // Check if error is "User already has an open session"
+                    if (error.message.includes('already has an open session')) {
+                        console.log('Session already active, attempting to recover state...');
+                        // Fetch the active session
+                        const { data: activeSession } = await supabase
+                            .from('usage_sessions')
+                            .select('id')
+                            .eq('user_id', userId)
+                            .eq('status', 'ABERTA')
+                            .maybeSingle();
+
+                        if (activeSession) {
+                            set({ activeSessionId: activeSession.id });
+                            get().showToast(getTranslation('session.startSuccess')); // Show success as we recovered
+                            return activeSession.id;
+                        }
+                    }
+
+                    get().showToast(getTranslation('session.startError') + error.message, 'error');
                     return null;
                 }
 
                 if (data && data.success) {
-                    get().showToast('Session started successfully');
+                    get().showToast(getTranslation('session.startSuccess'));
                     set({ activeSessionId: data.session_id });
                     return data.session_id;
                 } else {
-                    get().showToast('Failed to start session: ' + (data?.error || 'Unknown error'), 'error');
+                    get().showToast(getTranslation('session.startError') + (data?.error || 'Unknown error'), 'error');
                     return null;
                 }
             },
@@ -577,12 +620,12 @@ export const useStore = create<AppState>()(
 
                 if (error) {
                     console.error('Error stopping session:', error);
-                    get().showToast('Failed to stop session: ' + error.message, 'error');
+                    get().showToast(getTranslation('session.stopError') + error.message, 'error');
                     return false;
                 }
 
                 if (data && data.success) {
-                    get().showToast(`Session stopped. Charged: ${data.credits_charged} credits.`);
+                    get().showToast(getTranslation('session.stopSuccess') + data.credits_charged + getTranslation('session.creditsLabel'));
                     set({ activeSessionId: null });
                     // Refresh balance
                     const { currentUser } = get();
@@ -594,7 +637,7 @@ export const useStore = create<AppState>()(
                     }
                     return true;
                 } else {
-                    get().showToast('Failed to stop session: ' + (data?.error || 'Unknown error'), 'error');
+                    get().showToast(getTranslation('session.stopError') + (data?.error || 'Unknown error'), 'error');
                     return false;
                 }
             },
@@ -626,6 +669,44 @@ export const useStore = create<AppState>()(
                     email: p.email,
                     balance: p.saldo_creditos
                 }));
+            },
+
+            fetchOpenSessions: async () => {
+                const { data, error } = await supabase.rpc('get_open_sessions');
+
+                if (error) {
+                    console.error('Error fetching open sessions:', error);
+                    return [];
+                }
+
+                return (data || []).map((s: any) => ({
+                    sessionId: s.session_id,
+                    userId: s.user_id,
+                    username: s.username,
+                    email: s.email,
+                    startTime: s.start_time,
+                    durationMinutes: s.duration_minutes
+                }));
+            },
+
+            deleteSession: async (sessionId) => {
+                const { data, error } = await supabase.rpc('delete_session', {
+                    p_session_id: sessionId
+                });
+
+                if (error) {
+                    console.error('Error deleting session:', error);
+                    get().showToast(getTranslation('actionFailed') + error.message, 'error');
+                    return false;
+                }
+
+                if (data && data.success) {
+                    get().showToast(getTranslation('actionSuccess'));
+                    return true;
+                } else {
+                    get().showToast(getTranslation('actionFailed') + (data?.error || 'Unknown error'), 'error');
+                    return false;
+                }
             },
         }),
         {

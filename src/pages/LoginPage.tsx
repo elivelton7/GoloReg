@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, User, Lock, ArrowRight, Mail, UserPlus } from 'lucide-react';
+import { User, Lock, ArrowRight, Mail } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export const LoginPage: React.FC = () => {
@@ -21,7 +21,7 @@ export const LoginPage: React.FC = () => {
 
         let success = false;
         if (isSignUp) {
-            success = await signUp(email, password, username);
+            success = await signUp(email.trim(), password.trim(), username.trim());
             if (success) {
                 setIsSignUp(false);
                 setEmail('');
@@ -29,7 +29,7 @@ export const LoginPage: React.FC = () => {
                 setUsername('');
             }
         } else {
-            success = await signIn(email, password);
+            success = await signIn(email.trim(), password.trim());
             if (success) {
                 navigate('/field-selection');
             }
@@ -53,8 +53,12 @@ export const LoginPage: React.FC = () => {
             </div>
             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-gray-100">
                 <div className="text-center mb-8">
-                    <div className="bg-indigo-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform -rotate-6">
-                        {isSignUp ? <UserPlus className="text-white" size={32} /> : <LogIn className="text-white" size={32} />}
+                    <div className="flex justify-center mb-8">
+                        <img
+                            src="https://mzguoaihqpdhhaytqrwa.supabase.co/storage/v1/object/public/ImagesGoloReg/Gemini_Generated_Image_b4tb6rb4tb6rb4tb.png?v=2"
+                            alt="GoloReg Logo"
+                            className="w-40 h-auto object-contain"
+                        />
                     </div>
                     <h2 className="text-3xl font-bold text-gray-900">{isSignUp ? t('login.createAccount') : t('login.welcomeBack')}</h2>
                     <p className="text-gray-500 mt-2">{isSignUp ? t('login.signUpDesc') : t('login.signInDesc')}</p>
